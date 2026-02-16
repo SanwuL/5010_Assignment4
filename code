@@ -1,0 +1,185 @@
+let data;
+let dates = [];
+let meanT = [];
+let maxT = [];
+let minT = [];
+let selectedTemp = null;
+
+let selectedIndex = -1;
+
+// set map margin
+const margin = { l: 60, r: 30, t: 40, b: 50 };
+
+function preload() {
+  const url =
+    "https://archive-api.open-meteo.com/v1/archive" +
+    "?latitude=42.2626&longitude=-71.8023" +
+    "&start_date=2025-01-01&end_date=2025-12-31" +
+    "&daily=temperature_2m_mean,temperature_2m_max,temperature_2m_min" +
+    "&timezone=America/New_York";
+
+  data = loadJSON(url);
+}
+
+function setup() {
+  createCanvas(900, 420);
+
+  dates = data.daily.time;
+  meanT = data.daily.temperature_2m_mean;
+  maxT  = data.daily.temperature_2m_max;
+  minT  = data.daily.temperature_2m_min;
+}
+
+function draw() {
+  if (selectedTemp === null) {
+  background(245);   
+} else {
+  let bg = getBgColorByTemp(selectedTemp);
+  background(bg);
+}
+
+  drawAxes();
+
+  drawLine(meanT);
+
+  showInfo();
+}
+
+function mousePressed() {
+  selectedIndex = indexFromMouseX(mouseX);
+  if (selectedIndex !== -1) {
+    selectedTemp = meanT[selectedIndex];
+  }
+}
+
+function getBgColorByTemp(temp) {
+
+  if (temp < 0) {
+    return color(80, 140, 255);     
+
+  } else if (temp < 15) {
+    return color(180, 210, 255);    
+
+  } else if (temp < 23) {
+    return color(255, 240, 180);    
+
+  } else if (temp < 27) {
+    return color(190, 230, 190);    
+
+  } else {
+    return color(255, 180, 180);    
+  }
+}
+
+function drawAxes() {
+  const x0 = margin.l;
+  const y0 = height - margin.b;
+  const x1 = width - margin.r;
+  const y1 = margin.t;
+
+  stroke(60);
+  strokeWeight(1);
+  line(x0, y0, x1, y0); // X
+  line(x0, y0, x0, y1); // Y
+
+  const all = maxT.concat(minT);
+  const tMin = floor(min(all) - 2);
+  const tMax = ceil(max(all) + 2);
+
+  // Yaxis
+  noStroke();
+  fill(80);
+  textSize(11);
+  for (let t = ceil(tMin / 5) * 5; t <= tMax; t += 5) {
+    const y = map(t, tMin, tMax, y0, y1);
+    stroke(220);
+    line(x0, y, x1, y);
+    noStroke();
+    fill(80);
+    text(t + "°C", x0 - 40, y + 4);
+  }
+
+  // Xaxis
+  noStroke();
+  fill(80);
+  textSize(11);
+  for (let m = 1; m <= 12; m += 1) {
+    const idx = monthStartIndex(m);
+    const x = map(idx, 0, dates.length - 1, x0, x1);
+    stroke(220);
+    line(x, y0, x, y1);
+    noStroke();
+    fill(80);
+    text(nf(m, 2) , x - 8, y0 + 18);
+  }
+
+  // title
+  fill(30);
+  textSize(12);
+  text("Month (2025)", (x0 + x1) / 2 - 40, height - 12);
+  push();
+  translate(16, (y0 + y1) / 2 + 40);
+  rotate(-HALF_PI);
+  text("Temperature (°C)", 0, 0);
+  pop();
+}
+
+function drawLine(arr) {
+  const x0 = margin.l;
+  const y0 = height - margin.b;
+  const x1 = width - margin.r;
+  const y1 = margin.t;
+
+  const all = maxT.concat(minT);
+  const tMin = floor(min(all) - 2);
+  const tMax = ceil(max(all) + 2);
+
+  noFill();
+  stroke(0);
+  strokeWeight(2);
+  beginShape();
+  for (let i = 0; i < arr.length; i++) {
+    const x = map(i, 0, arr.length - 1, x0, x1);
+    const y = map(arr[i], tMin, tMax, y0, y1);
+    vertex(x, y);
+  }
+  endShape();
+}
+
+function showInfo() {
+  const i = indexFromMouseX(mouseX);
+  const SelectDate = dates[i];
+
+  noStroke();
+  fill(0);
+  textSize(14);
+
+  text("Date: " + SelectDate, 20, 22);
+
+  if (selectedIndex !== -1) {
+    let d = dates[selectedIndex];
+    let t = nf(meanT[selectedIndex], 1, 1);
+    let hT = nf(maxT[selectedIndex], 1, 1);
+    let lT = nf(minT[selectedIndex], 1, 1);
+    text("Temp:" + t + "°C  max: " + hT + "°C  min: " + lT + "°C", 20, 44);
+  }
+}
+
+function indexFromMouseX(mx) {
+  const x0 = margin.l;
+  const x1 = width - margin.r;
+
+  let i = floor(map(mx, x0, x1, 0, dates.length));
+  i = constrain(i, 0, dates.length - 1);
+  return i;
+}
+
+// find data index
+function monthStartIndex(month) {
+  const mm = nf(month, 2);
+  const target = "2025-" + mm + "-01";
+  for (let i = 0; i < dates.length; i++) {
+    if (dates[i] === target) return i;
+  }
+  return 0;
+}
